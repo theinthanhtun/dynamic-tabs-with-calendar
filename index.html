@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Tabs with Calendar</title>
+    <style>
+        .product-tabs {
+            width: 80%;
+            margin: 50px auto;
+        }
+
+        .timeslot {
+            display: flex;
+        }
+
+        .tab-header {
+            display: flex;
+            justify-content: space-between;
+            font-family: myriadPro-Regular;
+        }
+
+        .tab {
+            cursor: pointer;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-right: 10px;
+        }
+
+        #add-tab {
+            cursor: pointer;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .timeslot-container{
+            display: none;
+        }
+        .timeslot-container.open-selectbox{
+            display: block;
+        }
+        .product-tab-content {
+            border: 1px solid #ccc;
+            padding: 20px;
+            margin-top: 10px;
+            border-radius: 5px;
+        }
+
+        .tab-pane {
+            display: none;
+        }
+
+        .tab-pane.active {
+            display: block;
+        }
+
+        /* Style for calendar container */
+        .calendar-container {
+            margin-top: 20px;
+            font-family: Arial, sans-serif;
+            display: none;
+        }
+
+        .calendar-container.open-popup {
+            display: block;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .calendar-days,
+        .day-titles {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+        }
+
+        .calendar-day {
+            padding: 5px;
+            text-align: center;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+
+        .calendar-nav {
+            margin-top: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .nav-btn {
+            cursor: pointer;
+            padding: 5px 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+        }
+
+        .calendar-day.active {
+            background: red;
+            color: white;
+        }
+
+        .timeslot.active {
+            background: red;
+            color: white;
+        }
+
+        .calendar-day.inactive {
+            opacity: 0.5;
+            background: #c6c6c6;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="product-tabs">
+        <div class="flex justify-between tab-header myriadPro-Regular">
+            <ul id="tabs-container" class="flex">
+                <li class="tab" data-index="1">參與人 1</li>
+                <span id="add-tab" role="button" onclick="addTab()">+</span>
+            </ul>
+            <p class="ly-text16 text-menugray">人數：<span id="tab-id">1</span>/3</p>
+        </div>
+        <div id="tabs-content-container"
+            class="product-tab-content border border-secondarymain px-6 py-5 myriadPro-Regular relative">
+            <div class="tab-pane" id="tab-content-1">
+                <div class="popup-content">Hello World 1</div>
+                <div id="calendar-result-1">
+                    <input class="datetime-picker-value" type="hidden" value="">
+                    <button class="datetime-picker-btn">Selected Date</button>
+                </div>
+                <div class="calendar-container" id="calendar-1"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tabCount = 1;
+        let monthCounter = {};
+        let selectedDateTime = {};
+        const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+
+
+        function addTab() {
+            tabCount++;
+            if (!monthCounter[tabCount]) {
+                monthCounter[tabCount] = 0; // Set default month if not already set
+            }
+
+            const tabsContainer = document.getElementById('tabs-container');
+            const newTab = document.createElement('li');
+            newTab.className = 'tab';
+            newTab.setAttribute('data-index', tabCount);
+            newTab.textContent = `參與人 ${tabCount}`;
+            newTab.onclick = function () {
+                changeTab(tabCount);
+            };
+
+            tabsContainer.insertBefore(newTab, document.getElementById('add-tab'));
+
+            const tabsContentContainer = document.getElementById('tabs-content-container');
+            const newTabContent = document.createElement('div');
+            newTabContent.className = 'tab-pane';
+            newTabContent.id = `tab-content-${tabCount}`;
+            newTabContent.innerHTML = `<div class="popup-content">Hello World ${tabCount}</div>
+                    <div id="calendar-result-${tabCount}">
+                        <input class="datetime-picker-value" type="hidden" value="">
+                        <button class="datetime-picker-btn">Selected Date</button>
+                    </div>
+                    <button class="delete-tab-btn" onclick="deleteTab(${tabCount})">Delete Tab</button>
+                <div class="calendar-container" id="calendar-${tabCount}"></div>`;
+            tabsContentContainer.appendChild(newTabContent);
+
+            let tabs = document.querySelectorAll('.tab');
+            document.getElementById('tab-id').innerHTML = tabs.length;
+
+            // Activate the new tab
+            changeTab(tabCount);
+
+            // Initialize calendar for the new tab
+            initCalendar(tabCount);
+
+            // Update event listeners for all tabs
+            updateTabEventListeners();
+        }
+
+        document.getElementById('tabs-content-container')?.addEventListener('click', function () {
+            document.querySelectorAll('.tab').length > 2 ? document.getElementById('add-tab').style.display = "none" : document.getElementById('add-tab').style.display = "block";
+            let tabs = document.querySelectorAll('.tab');
+            tabs.forEach(function (tab, index) {
+                tab.addEventListener('click', function () {
+                    document.getElementById('tab-id').innerHTML = index + 1;
+                });
+            });
+
+        })
+        document.getElementById('tabs-container')?.addEventListener('click', function () {
+            document.querySelectorAll('.tab').length > 2 ? document.getElementById('add-tab').style.display = "none" : document.getElementById('add-tab').style.display = "block";
+            let tabs = document.querySelectorAll('.tab');
+            tabs.forEach(function (tab, index) {
+                tab.addEventListener('click', function () {
+                    document.getElementById('tab-id').innerHTML = index + 1;
+                });
+            });
+        })
+
+        function deleteTab(index) {
+           
+            // Remove the tab and its content
+            const tabsContainer = document.getElementById('tabs-container');
+            const tabToRemove = document.querySelector(`.tab[data-index="${index}"]`);
+            tabsContainer.removeChild(tabToRemove);
+
+            const tabsContentContainer = document.getElementById('tabs-content-container');
+            const tabContentToRemove = document.getElementById(`tab-content-${index}`);
+            tabsContentContainer.removeChild(tabContentToRemove);
+            changeTab(1);
+            document.getElementById('tab-id').innerHTML = 1;
+        }
+
+
+        function changeTab(index) {
+            // Store the selected date and time for the current tab before switching
+            const currentTab = document.querySelector(`#calendar-${index}`);
+            const selectedDate = currentTab.querySelector('.calendar-day.active');
+            const selectedTimeSlot = currentTab.querySelector('.timeslot.active');
+
+            // Update the stored values
+            if (selectedDate && selectedTimeSlot) {
+                const selectedDateValue = selectedDate.getAttribute('data-date'); // Use the data-date attribute
+                const selectedTimeValue = `${selectedTimeSlot.querySelector('.hour').innerText}:${selectedTimeSlot.querySelector('.minute').innerText}`;
+                selectedDateTime[index] = { date: selectedDateValue, time: selectedTimeValue };
+            } else {
+                // If no date or time is selected, set it to null for the current tab
+                selectedDateTime[index] = null;
+            }
+
+            // Set the selected month for the current tab
+            monthCounter[index] = monthCounter[index] || 0;
+            const calendarContainer = document.getElementById(`calendar-${index}`);
+            updateCalendar(calendarContainer, monthCounter[index], index);
+
+            // Restore the selected date and time for the current tab
+            const storedDateTime = selectedDateTime[index];
+            if (storedDateTime) {
+                const allDays = calendarContainer.querySelectorAll('.calendar-day');
+                allDays.forEach(day => {
+                    if (day.getAttribute('data-date') === storedDateTime.date) { // Use the data-date attribute
+                        day.classList.add('active');
+                    } else {
+                        day.classList.remove('active');
+                    }
+                });
+
+                const timeSlots = calendarContainer.querySelectorAll('.timeslot');
+                timeSlots.forEach(slot => {
+                    if (slot.querySelector('.hour').innerText + ':' + slot.querySelector('.minute').innerText === storedDateTime.time) {
+                        slot.classList.add('active');
+                    } else {
+                        slot.classList.remove('active');
+                    }
+                });
+            }
+
+            // Update the content of the selected date preview
+
+            // Update the content of the selected date preview
+            const selectedDatePreview = document.getElementById(`datePicker-preview-${index}`).querySelector('.selected-dat');
+            const previousSelectedDate = storedDateTime ? `${formatSelectedDate(storedDateTime)}` : `Today: ${formatSelectedDate({ date: new Date() })}`;
+            selectedDatePreview.textContent = previousSelectedDate;
+
+
+            // Update the content of the timeslot preview
+            const timePickerPreview = document.getElementById(`timePicker-preview-${index}`);
+            const previousSelectedTime = storedDateTime ? `${storedDateTime.time.split(':')[0]}:${storedDateTime.time.split(':')[1]}` : getFirstTimeSlot();
+            timePickerPreview.innerHTML = `<div><span class="hr">${previousSelectedTime.split(':')[0]}</span>:<span class="min">${previousSelectedTime.split(':')[1]}</span></div>`;
+
+            // Activate the new tab
+            const tabPanes = document.querySelectorAll('.tab-pane');
+            tabPanes.forEach(tabPane => tabPane.classList.remove('active'));
+
+            const activeTabPane = document.getElementById(`tab-content-${index}`);
+            activeTabPane.classList.add('active');
+
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+
+            // Add 'active' class to the clicked tab
+            const clickedTab = document.querySelector(`.tab[data-index="${index}"]`);
+            clickedTab.classList.add('active');
+
+            // Update event listeners for all tabs
+            updateTabEventListeners();
+        }
+
+        function getFirstTimeSlot() {
+            const firstTimeSlot = document.querySelector('.timeslot');
+            const firstHour = firstTimeSlot.querySelector('.hour').innerText;
+            const firstMinute = firstTimeSlot.querySelector('.minute').innerText;
+            return `${firstHour}:${firstMinute}`;
+        }
+
+
+
+        function formatSelectedDate(dateTimeObj) {
+            if (dateTimeObj && dateTimeObj.date) {
+                const dateObj = new Date(dateTimeObj.date);
+                if (!isNaN(dateObj.getTime())) {
+                    const dayOfWeek = daysOfWeek[dateObj.getDay()];
+                    const formattedDate = `${dayOfWeek}, ${dateObj.getMonth() + 1}-${dateObj.getDate()}-${dateObj.getFullYear()}`;
+                    return formattedDate;
+                }
+            }
+
+            // If there is no previous selection, show today's date
+            const today = new Date();
+            const todayFormatted = `${daysOfWeek[today.getDay()]}, ${today.getMonth() + 1}-${today.getDate()}-${today.getFullYear()}`;
+            return todayFormatted;
+        }
+
+
+
+        function initCalendar(tabIndex) {
+            const calendarContainer = document.getElementById(`calendar-${tabIndex}`);
+            updateCalendar(calendarContainer, monthCounter[tabIndex], tabIndex);
+            updateTimeslotEventListeners(tabIndex);
+
+
+            // Add event listeners for the timeslots
+            const timeSlots = calendarContainer.querySelectorAll('.timeslot');
+            timeSlots.forEach(timeslot => {
+                timeslot.addEventListener('click', function () {
+                    // Remove 'active' class from all timeslots
+                    timeSlots.forEach(slot => slot.classList.remove('active'));
+
+                    // Add 'active' class to the clicked timeslot
+                    this.classList.add('active');
+
+                    // Store the selected date and time for the current tab
+                    const selectedDate = document.querySelector(`#calendar-${tabIndex} .calendar-day.active`).getAttribute('data-date');
+                    const selectedTime = this.querySelector('.hour').innerText + ':' + this.querySelector('.minute').innerText;
+                    selectedDateTime[tabIndex] = { date: selectedDate, time: selectedTime };
+                });
+            });
+        }
+
+        function updateTimeslotEventListeners(tabIndex) {
+            const timeSlots = document.getElementById(`calendar-${tabIndex}`).querySelectorAll('.timeslot');
+            timeSlots.forEach(timeslot => {
+                timeslot.onclick = function () {
+                    // Remove 'active' class from all timeslots
+                    timeSlots.forEach(slot => slot.classList.remove('active'));
+
+                    // Add 'active' class to the clicked timeslot
+                    this.classList.add('active');
+
+                    // Store the selected date and time for the current tab
+
+                    const selectedDate = document.querySelector(`#calendar-${tabIndex} .calendar-day.active`).getAttribute('data-date');
+                    const selectedTime = this.querySelector('.hour').innerText + ':' + this.querySelector('.minute').innerText;
+                    selectedDateTime[tabIndex] = { date: selectedDate, time: selectedTime };
+
+                    // Update the preview section
+                    const timePickerPreview = document.getElementById(`timePicker-preview-${tabIndex}`);
+                    timePickerPreview.innerHTML = `<div><span class="hr">${this.querySelector('.hour').innerText}</span>:<span class="min">${this.querySelector('.minute').innerText}</span></div>`;
+                };
+            });
+        }
+
+        function updateCalendar(container, monthOffset, tabIndex) {
+            const timeOptions = generateTimeOptions();
+            const currentDate = new Date();
+            currentDate.setMonth(currentDate.getMonth() + monthOffset);
+            const timePickerPreview = document.getElementById(`timePicker-preview-${tabIndex}`);
+
+
+
+            const currentYear = currentDate.getFullYear();
+            const currentMonth = currentDate.getMonth();
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
+
+            const selectedDate = container.querySelector('.calendar-day.active') ? container.querySelector('.calendar-day.active').getAttribute('data-date') : '';
+            const selectedTimeSlot = container.querySelector('.timeslot.active');
+
+
+
+
+            const calendarHTML = `
+            <div class="calendar-row">
+                <div>
+                    <div class="calendar-header">
+                        <button class="nav-btn prev-month" onclick="updateCalendar(document.getElementById('calendar-${tabIndex}'), monthCounter[${tabIndex}], ${tabIndex})">&lt;</button>
+                        <button class="nav-btn next-month" onclick="updateCalendar(document.getElementById('calendar-${tabIndex}'), monthCounter[${tabIndex}], ${tabIndex})">&gt;</button>
+
+                        <span>${new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long' })} ${currentYear}</span>
+                    </div>
+                    <div class="day-titles">
+                        <div>Sun</div>
+                        <div>Mon</div>
+                        <div>Tue</div>
+                        <div>Wed</div>
+                        <div>Thu</div>
+                        <div>Fri</div>
+                        <div>Sat</div>
+                    </div>
+                    <div class="calendar-days">
+                        ${generateCalendarDays(firstDayOfMonth, daysInMonth, currentYear, currentMonth)}
+                    </div>
+                </div>
+                <div id="datePicker-preview-${tabIndex}"><span class="selected-dat">${formatSelectedDate({ date: new Date() })}</span></div>
+            </div>
+            <div class="time-picker-row">
+                <div class="timeslot-selector" id="timePicker-preview-${tabIndex}"><span class="hr">00</span>:<span class="min">00</span></div>
+                <div class="timeslot-container" id="timePicker-${tabIndex}" name="timePicker-${tabIndex}">
+                    ${timeOptions}
+                </div>
+            </div>
+            <div class="select-the-date-and-time">
+                <button id="picked-${tabIndex}">Pick the date and time</button>
+            </div>
+            
+            `;
+
+            container.innerHTML = calendarHTML;
+
+            updateTimeslotEventListeners(tabIndex);
+
+
+            const prevMonthBtn = container.querySelector('.prev-month');
+            const nextMonthBtn = container.querySelector('.next-month');
+
+            // Remove existing event listeners
+            prevMonthBtn.removeEventListener('click', () => updateCalendar(container, monthCounter[tabIndex], tabIndex));
+            nextMonthBtn.removeEventListener('click', () => updateCalendar(container, monthCounter[tabIndex], tabIndex));
+
+            // Add new event listeners
+            prevMonthBtn.addEventListener('click', () => {
+                monthCounter[tabIndex]--;
+                updateCalendar(container, monthCounter[tabIndex], tabIndex);
+            });
+            nextMonthBtn.addEventListener('click', () => {
+                monthCounter[tabIndex]++;
+                updateCalendar(container, monthCounter[tabIndex], tabIndex);
+            });
+
+            const timeSlots = container.querySelectorAll('.timeslot');
+            timeSlots.forEach(timeslot => {
+                timeslot.addEventListener('click', function () {
+                    timeSlots.forEach(slot => slot.classList.remove('active'));
+
+                    // Add 'active' class to the clicked timeslot
+                    this.classList.add('active');
+
+                    // Set the selected time in the preview section
+                    const selectedHour = this.querySelector('.hour').innerText;
+                    const selectedMinute = this.querySelector('.minute').innerText;
+                    timePickerPreview.innerHTML = `<div><span class="hr">${selectedHour}</span>:<span class="min">${selectedMinute}</span></div>`;
+
+                });
+            });
+
+            // Inside the event listener for date selection
+            container.addEventListener('click', (event) => {
+                const clickedElement = event.target;
+
+                // Check if the clicked element or any of its ancestors has the class 'calendar-row'
+                if (clickedElement.classList.contains('calendar-row') || clickedElement.closest('.calendar-row')) {
+                    const selectedDate = event.target.innerText;
+                    if (!isNaN(selectedDate)) {
+                        const allDays = container.querySelectorAll('.calendar-day');
+                        allDays.forEach(day => day.classList.remove('active'));
+                        event.target.classList.add('active');
+
+                        // Set the time to midnight for the selected date
+                        const dateObj = new Date(currentYear, currentMonth, parseInt(selectedDate), 0, 0, 0, 0);
+
+                        // Manually construct the day of the week
+                        const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                        const dayOfWeek = daysOfWeek[dateObj.getDay()];
+
+                        // Format the selected date
+                        const formattedDate = `${dayOfWeek}, ${currentMonth + 1}-${selectedDate}-${currentYear}`;
+
+                        // Update the selected date in the preview section
+                        const selectedDateSpan = document.getElementById(`datePicker-preview-${tabIndex}`).querySelector('.selected-dat');
+                        selectedDateSpan.textContent = `${formattedDate}`;
+
+                        // Store the selected date and timeslot in a consistent format
+                        const selectedTimeSlot = container.querySelector('.timeslot.active');
+                        const selectedTime = selectedTimeSlot ? `${selectedTimeSlot.querySelector('.hour').innerText}:${selectedTimeSlot.querySelector('.minute').innerText}` : '';
+                        selectedDateTime[tabIndex] = { date: `${currentMonth + 1}-${selectedDate}-${currentYear}`, time: selectedTime };
+                    }
+                }
+            
+            });
+
+            const timeSlotsContainer = container.querySelector('.timeslot-container');
+            const timeSelector = container.querySelector('.timeslot-selector');
+
+            // Add event listener for timeslot selector
+            timeSelector.addEventListener('click', function () {
+                timeSlotsContainer.classList.toggle('open-selectbox'); // Replace 'your-toggle-class' with the actual class you want to toggle
+            });
+
+            timeSlots.forEach(timeslot => {
+                timeslot.addEventListener('click', function () {
+                    timeSlotsContainer.classList.remove('open-selectbox'); // Replace 'your-toggle-class' with the actual class you want to remove
+                });
+            });
+
+            document.getElementById(`picked-${tabIndex}`).addEventListener('click', function () {
+
+                const calendarResultDiv = document.getElementById(`calendar-result-${tabIndex}`);
+                const selectedDateTimeForTab = selectedDateTime[tabIndex];
+
+                if (selectedDateTimeForTab) {
+                    const inputField = calendarResultDiv.querySelector('.datetime-picker-value');
+                    const button = calendarResultDiv.querySelector('.datetime-picker-btn');
+
+                    // Update the input field value and button text
+                    inputField.value = selectedDateTimeForTab.date + ' ' + selectedDateTimeForTab.time;
+                    button.textContent = 'Selected Date: ' + selectedDateTimeForTab.date + ' ' + selectedDateTimeForTab.time;
+                }
+                container.classList.remove('open-popup');
+            });
+
+
+
+
+        }
+
+        function generateTimeOptions() {
+            const timeIntervals = ['00:00', '00:15', '00:30', '00:45', '01:00', '01:15', '01:30', '01:45' /*... add more intervals as needed ...*/];
+
+            const timeOptionsHTML = timeIntervals.map(interval => {
+                const [hours, minutes] = interval.split(':');
+                const isActiveClass = (hours === '00' && minutes === '00') ? 'active' : ''; // Set initial 'active' class for the first timeslot
+                return `
+            <div class="timeslot ${isActiveClass}">
+                <span class="hour">${hours}</span>
+                <span>:</span>
+                <span class="minute">${minutes}</span>
+            </div>`;
+            }).join('');
+
+            return `<div class="time-select">${timeOptionsHTML}</div>`;
+        }
+
+
+        function generateCalendarDays(firstDay, daysInMonth, currentYear, currentMonth) {
+            let calendarDaysHTML = '';
+            let dayCounter = 1;
+
+            // Fill preceding month days
+            for (let i = 0; i < firstDay; i++) {
+                const precedingMonthDays = new Date(currentYear, currentMonth, -i).getDate();
+                calendarDaysHTML += `<div class="calendar-day inactive" data-date="${currentMonth + 1}-${precedingMonthDays}-${currentYear}">${precedingMonthDays}</div>`;
+            }
+
+            for (let i = 0; i < 35 - firstDay; i++) {
+                if (dayCounter <= daysInMonth) {
+                    const isActiveClass = (dayCounter === new Date().getDate()) ? 'active' : '';
+                    calendarDaysHTML += `<div class="calendar-day ${isActiveClass}" data-date="${currentMonth + 1}-${dayCounter}-${currentYear}">${dayCounter}</div>`;
+                    dayCounter++;
+                } else {
+                    // Fill succeeding month days if needed
+                    const succeedingMonthDays = new Date(currentYear, currentMonth + 1, i + 1).getDate();
+                    calendarDaysHTML += `<div class="calendar-day inactive" data-date="${currentMonth + 1}-${succeedingMonthDays}-${currentYear}">${succeedingMonthDays}</div>`;
+                }
+            }
+
+            return calendarDaysHTML;
+        }
+
+
+        function updateTabEventListeners() {
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                const tabIndex = parseInt(tab.getAttribute('data-index'));
+                tab.onclick = function () {
+                    changeTab(tabIndex);
+                };
+
+                // Add event listener for the timeslots of the active tab
+                const timeSlots = document.getElementById(`calendar-${tabIndex}`).querySelectorAll('.timeslot');
+                timeSlots.forEach(timeslot => {
+                    timeslot.onclick = function () {
+                        // Remove 'active' class from all timeslots
+                        timeSlots.forEach(slot => slot.classList.remove('active'));
+
+                        // Add 'active' class to the clicked timeslot
+                        this.classList.add('active');
+
+                        // Store the selected date and time for the current tab
+                        const selectedDate = document.querySelector(`#calendar-${tabIndex} .calendar-day.active`).getAttribute('data-date');
+                        const selectedTime = this.querySelector('.hour').innerText + ':' + this.querySelector('.minute').innerText;
+                        selectedDateTime[tabIndex] = { date: selectedDate, time: selectedTime };
+
+                        // Update the preview section
+                        const timePickerPreview = document.getElementById(`timePicker-preview-${tabIndex}`);
+                        timePickerPreview.innerHTML = `<div><span class="hr">${this.querySelector('.hour').innerText}</span>:<span class="min">${this.querySelector('.minute').innerText}</span></div>`;
+                    };
+                });
+            });
+        }
+
+        document.body.addEventListener('click', function (event) {
+            if (event.target.classList.contains('datetime-picker-btn')) {
+                const calendarContainer = event.target.closest('.tab-pane').querySelector('.calendar-container');
+                calendarContainer.classList.toggle('open-popup');
+            }
+        });
+
+
+
+        // Initialize calendar for the first tab
+        initCalendar(1);
+
+        // Update event listeners for all tabs initially
+        updateTabEventListeners();
+
+        // Auto activate the first tab when the page loads
+        changeTab(1);
+
+
+
+    </script>
+
+</body>
+
+</html>
